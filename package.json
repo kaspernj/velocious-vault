@@ -1,0 +1,33 @@
+{
+  "name": "velocious-vault",
+  "version": "0.1.0",
+  "description": "Framework-neutral encrypted browser secret storage using WebCrypto and async adapters",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./indexeddb": "./src/indexeddb.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.33.0",
+    "fake-indexeddb": "^6.2.5"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kaspernj/velocious-vault.git"
+  }
+}
