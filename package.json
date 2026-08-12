@@ -4,9 +4,16 @@
   "description": "Framework-neutral encrypted browser secret storage using WebCrypto and async adapters",
   "type": "module",
   "exports": {
-    ".": "./src/index.js",
-    "./indexeddb": "./src/indexeddb.js"
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./indexeddb": {
+      "types": "./src/indexeddb.d.ts",
+      "default": "./src/indexeddb.js"
+    }
   },
+  "types": "./src/index.d.ts",
   "files": [
     "src",
     "README.md",
