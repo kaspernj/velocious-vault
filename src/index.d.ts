@@ -19,5 +19,5 @@ export function createEncryptedVault(options: {
   keyStore: AsyncValueStore<CryptoKey>
   recordStore: AsyncValueStore<unknown>
   subtle: SubtleCrypto
-  getRandomValues: <T extends ArrayBufferView | null>(array: T) => T
+  getRandomValues: Crypto["getRandomValues"]
 }): EncryptedVault
