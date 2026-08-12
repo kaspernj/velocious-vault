@@ -35,7 +35,7 @@ await vault.get("instance:42:api-key")
 await vault.delete("instance:42:api-key")
 ```
 
-Both adapters use async `get(key)`, `set(key, value)`, and (for encrypted records) `delete(key)`. Missing values return `undefined`. The package deliberately has no enumeration or export API.
+Both adapters use async `get(key)`, `set(key, value)`, and (for encrypted records) `delete(key)`. Key-store adapters additionally provide atomic `getOrCreate(key, value)` so concurrent vault instances cannot replace one another's encryption key. Missing values return `undefined`. The package deliberately has no enumeration or export API.
 
 `createIndexedDbKeyStore()` stores a generated non-extractable `CryptoKey` in IndexedDB. It never exports raw key material. Applications own encrypted-record persistence and lifecycle; record values are versioned JSON-compatible envelopes. Each ciphertext is authenticated against its logical key as AES-GCM additional authenticated data, so moving a record to another key makes decryption fail.
 

@@ -17,6 +17,19 @@ test("persists a non-extractable key and encrypted records across vault instance
   assert.equal((await keyStore.get("velocious-vault:aes-gcm:1")).extractable, false)
 })
 
+test("creates distinct requested stores in the same database", async () => {
+  const indexedDB = new IDBFactory()
+  const databaseName = "shared-browser-test"
+  const keyStore = createIndexedDbKeyStore({databaseName, indexedDB, storeName: "keys"})
+  const recordStore = createIndexedDbStore({databaseName, indexedDB, storeName: "records"})
+
+  await keyStore.set("key", "key-value")
+  await recordStore.set("record", "record-value")
+
+  assert.equal(await keyStore.get("key"), "key-value")
+  assert.equal(await recordStore.get("record"), "record-value")
+})
+
 test("fails actionably instead of using a fallback when IndexedDB is unavailable", () => {
   assert.throws(() => createIndexedDbKeyStore({indexedDB: undefined}), (error) => error instanceof VaultCapabilityError && error.code === "INDEXEDDB_UNAVAILABLE")
 })

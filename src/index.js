@@ -55,6 +55,9 @@ function persistenceError(message, code, cause) {
 export function createEncryptedVault({keyStore, recordStore, subtle, getRandomValues} = {}) {
   assertAdapter(keyStore, "keyStore")
   assertAdapter(recordStore, "recordStore")
+  if (typeof keyStore.getOrCreate !== "function") {
+    throw new TypeError("keyStore must provide an atomic async getOrCreate() method.")
+  }
   if (!subtle || typeof subtle.generateKey !== "function" || typeof subtle.encrypt !== "function" || typeof getRandomValues !== "function") {
     throw new VaultCapabilityError("WebCrypto AES-GCM is unavailable. Use this vault in a secure browser context with WebCrypto enabled.", "WEBCRYPTO_UNAVAILABLE")
   }
@@ -72,8 +75,7 @@ export function createEncryptedVault({keyStore, recordStore, subtle, getRandomVa
       if (key !== undefined) return key
       const created = await subtle.generateKey({name: ALGORITHM, length: 256}, false, ["encrypt", "decrypt"])
       try {
-        await keyStore.set(KEY_ID, created)
-        const persisted = await keyStore.get(KEY_ID)
+        const persisted = await keyStore.getOrCreate(KEY_ID, created)
         if (!persisted) throw new Error("Encryption key readback failed")
         return persisted
       } catch (cause) {
@@ -98,8 +100,9 @@ export function createEncryptedVault({keyStore, recordStore, subtle, getRandomVa
       }
       if (envelope === undefined) return undefined
       const {iv, ciphertext} = validateEnvelope(envelope)
+      const key = await loadKey()
       try {
-        const plaintext = await subtle.decrypt({name: ALGORITHM, iv, additionalData: encoder.encode(logicalKey), tagLength: 128}, await loadKey(), ciphertext)
+        const plaintext = await subtle.decrypt({name: ALGORITHM, iv, additionalData: encoder.encode(logicalKey), tagLength: 128}, key, ciphertext)
         return decoder.decode(plaintext)
       } catch (cause) {
         throw new VaultEnvelopeError("The encrypted record could not be authenticated or decrypted.", "DECRYPTION_FAILED", {cause})

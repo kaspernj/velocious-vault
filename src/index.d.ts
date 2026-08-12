@@ -4,6 +4,10 @@ export interface AsyncValueStore<T> {
   delete?(key: string): Promise<boolean>
 }
 
+export interface AtomicKeyStore<T> extends AsyncValueStore<T> {
+  getOrCreate(key: string, value: T): Promise<T>
+}
+
 export interface EncryptedVault {
   get(logicalKey: string): Promise<string | undefined>
   set(logicalKey: string, value: string): Promise<void>
@@ -16,7 +20,7 @@ export class VaultPersistenceError extends VaultError {}
 export class VaultEnvelopeError extends VaultError {}
 
 export function createEncryptedVault(options: {
-  keyStore: AsyncValueStore<CryptoKey>
+  keyStore: AtomicKeyStore<CryptoKey>
   recordStore: AsyncValueStore<unknown>
   subtle: SubtleCrypto
   getRandomValues: Crypto["getRandomValues"]

@@ -14,8 +14,28 @@ function memoryStore() {
   return {
     delete: async (key) => records.delete(key),
     get: async (key) => records.get(key),
+    getOrCreate: async (key, value) => {
+      if (!records.has(key)) records.set(key, value)
+      return records.get(key)
+    },
     set: async (key, value) => records.set(key, value),
     records
+  }
+}
+
+function coordinatedKeyStore() {
+  const store = memoryStore()
+  let waiting = 0
+  let releaseReads
+  const readsReleased = new Promise((resolve) => { releaseReads = resolve })
+  return {
+    ...store,
+    get: async (key) => {
+      const value = await store.get(key)
+      if (value === undefined && ++waiting === 2) releaseReads()
+      if (value === undefined) await readsReleased
+      return value
+    }
   }
 }
 
@@ -44,6 +64,23 @@ test("persists a non-extractable AES-256-GCM CryptoKey", async () => {
   await assert.rejects(webcrypto.subtle.exportKey("raw", key), /not extractable/i)
 })
 
+test("atomically creates one key across concurrent first writes from independent vaults", async () => {
+  const keyStore = coordinatedKeyStore()
+  const recordStore = memoryStore()
+  const options = {keyStore, recordStore, subtle: webcrypto.subtle, getRandomValues: webcrypto.getRandomValues.bind(webcrypto)}
+  const first = createEncryptedVault(options)
+  const second = createEncryptedVault(options)
+
+  await Promise.all([
+    first.set("first", "sentinel-first"),
+    second.set("second", "sentinel-second")
+  ])
+
+  const reloaded = createEncryptedVault(options)
+  assert.equal(await reloaded.get("first"), "sentinel-first")
+  assert.equal(await reloaded.get("second"), "sentinel-second")
+})
+
 test("binds ciphertext to its logical key with authenticated data", async () => {
   const recordStore = memoryStore()
   const vault = createEncryptedVault({keyStore: memoryStore(), recordStore, subtle: webcrypto.subtle, getRandomValues: webcrypto.getRandomValues.bind(webcrypto)})
@@ -64,10 +101,21 @@ test("fails with typed actionable errors when WebCrypto or key persistence is un
   assert.throws(() => createEncryptedVault({keyStore: memoryStore(), recordStore: memoryStore()}), (error) => error instanceof VaultCapabilityError && error.code === "WEBCRYPTO_UNAVAILABLE")
 
   const vault = createEncryptedVault({
-    keyStore: {get: async () => undefined, set: async () => { throw new Error("synthetic persistence failure") }},
+    keyStore: {get: async () => undefined, getOrCreate: async () => { throw new Error("synthetic persistence failure") }, set: async () => {}},
     recordStore: memoryStore(),
     subtle: webcrypto.subtle,
     getRandomValues: webcrypto.getRandomValues.bind(webcrypto)
   })
   await assert.rejects(vault.set("key", "value"), (error) => error instanceof VaultPersistenceError && error.code === "KEY_PERSISTENCE_FAILED")
+})
+
+test("preserves typed key persistence failures while reading a valid envelope", async () => {
+  const keyStore = memoryStore()
+  const recordStore = memoryStore()
+  const options = {keyStore, recordStore, subtle: webcrypto.subtle, getRandomValues: webcrypto.getRandomValues.bind(webcrypto)}
+  await createEncryptedVault(options).set("key", "value")
+  const failure = new VaultPersistenceError("synthetic key read failure", "INDEXEDDB_PERSISTENCE_FAILED")
+  const reloaded = createEncryptedVault({...options, keyStore: {...keyStore, get: async () => { throw failure }}})
+
+  await assert.rejects(reloaded.get("key"), (error) => error instanceof VaultPersistenceError && error.code === "KEY_PERSISTENCE_FAILED")
 })
